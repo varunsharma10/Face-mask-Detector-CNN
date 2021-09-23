@@ -1,141 +1,371 @@
-# import the necessary packages
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Facemask_Detection
+
+# ### Importing Library
+
+# In[1]:
+
+
+import pandas as pd
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.layers import AveragePooling2D
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import Flatten
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Input
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
-from tensorflow.keras.models import load_model
-from imutils.video import VideoStream
+from tensorflow.keras.preprocessing.image import load_img
+from tensorflow.keras.utils import to_categorical
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.model_selection import train_test_split
+from imutils import paths
+import matplotlib.pyplot as plt
 import numpy as np
-import imutils
-import time
-import cv2
+from imutils import paths
 import os
-
-def detect_and_predict_mask(frame, faceNet, maskNet):
-	# grab the dimensions of the frame and then construct a blob
-	# from it
-	(h, w) = frame.shape[:2]
-	blob = cv2.dnn.blobFromImage(frame, 1.0, (224, 224),
-		(104.0, 177.0, 123.0))
-
-	# pass the blob through the network and obtain the face detections
-	faceNet.setInput(blob)
-	detections = faceNet.forward()
-	print(detections.shape)
-
-	# initialize our list of faces, their corresponding locations,
-	# and the list of predictions from our face mask network
-	faces = []
-	locs = []
-	preds = []
-
-	# loop over the detections
-	for i in range(0, detections.shape[2]):
-		# extract the confidence (i.e., probability) associated with
-		# the detection
-		confidence = detections[0, 0, i, 2]
-
-		# filter out weak detections by ensuring the confidence is
-		# greater than the minimum confidence
-		if confidence > 0.5:
-			# compute the (x, y)-coordinates of the bounding box for
-			# the object
-			box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-			(startX, startY, endX, endY) = box.astype("int")
-
-			# ensure the bounding boxes fall within the dimensions of
-			# the frame
-			(startX, startY) = (max(0, startX), max(0, startY))
-			(endX, endY) = (min(w - 1, endX), min(h - 1, endY))
-
-			# extract the face ROI, convert it from BGR to RGB channel
-			# ordering, resize it to 224x224, and preprocess it
-			face = frame[startY:endY, startX:endX]
-			face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
-			face = cv2.resize(face, (224, 224))
-			face = img_to_array(face)
-			face = preprocess_input(face)
-
-			# add the face and bounding boxes to their respective
-			# lists
-			faces.append(face)
-			locs.append((startX, startY, endX, endY))
-
-	# only make a predictions if at least one face was detected
-	if len(faces) > 0:
-		# for faster inference we'll make batch predictions on *all*
-		# faces at the same time rather than one-by-one predictions
-		# in the above `for` loop
-		faces = np.array(faces, dtype="float32")
-		preds = maskNet.predict(faces, batch_size=32)
-
-	# return a 2-tuple of the face locations and their corresponding
-	# locations
-	return (locs, preds)
+import cv2
 
 
+# ### Preprocessing the training set
 
-# load our serialized face detector model from disk
-prototxtPath = "/home/ignacio.baldriz/Desktop/ignacio_baldriz/face_mask_detection_2/Face-Mask-Detection_2/face_detector/deploy.prototxt"
-weightsPath = "/home/ignacio.baldriz/Desktop/ignacio_baldriz/face_mask_detection_2/Face-Mask-Detection_2/face_detector/res10_300x300_ssd_iter_140000.caffemodel"
-faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
+# ### Preprocessing the test set
 
-# load the face mask detector model from disk
-maskNet = load_model("/home/ignacio.baldriz/Desktop/ignacio_baldriz/face_mask_detection_2/Face-Mask-Detection_2/mask_recognizer.h5")
+# In[2]:
 
-# initialize the video stream
-print("[INFO] starting video stream...")
-vs = VideoStream(src=0).start()
 
-# loop over the frames from the video stream
-while True:
-	# grab the frame from the threaded video stream and resize it
-	# to have a maximum width of 400 pixels
-	frame = vs.read()
-	frame = imutils.resize(frame, width=400)
+Datadirectory = "dataset/"
+Classes = ["correct_mask" , "incorrect"]
+for i in Classes:
+    path = os.path.join(Datadirectory , i)
+    for img in os.listdir(path):
+        img_array = cv2.imread(os.path.join(path,img))
+        plt.imshow(cv2.cvtColor(img_array , cv2.COLOR_BGR2RGB))
+        plt.show()
+        break;
+    break;
 
-	# detect faces in the frame and determine if they are wearing a
-	# face mask or not
-	(locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
 
-	# loop over the detected face locations and their corresponding
-	# locations
-	for (box, pred) in zip(locs, preds):
-		# unpack the bounding box and predictions
-		(startX, startY, endX, endY) = box
-		(mask, withoutMask) = pred
+# In[3]:
 
-		# determine the class label and color we'll use to draw
-		# the bounding box and text
-		label = "Mask" if mask > withoutMask else "No Mask"
-		color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
 
-		# include the probability in the label
-		label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
+new_array = cv2.resize(img_array , (224,224))
+plt.imshow(cv2.cvtColor(new_array , cv2.COLOR_BGR2RGB))
+plt.show()
 
-		# display the label and bounding box rectangle on the output
-		# frame
-		cv2.putText(frame, label, (startX, startY - 10),
-			cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
-		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
-	# show the output frame
-	cv2.imshow("Frame", frame)
-	key = cv2.waitKey(1) & 0xFF
+# In[4]:
 
-	# if the `q` key was pressed, break from the loop
-	if key == ord("q"):
-		break
 
-# do a bit of cleanup
-cv2.destroyAllWindows()
-vs.stop()
+data_path='dataset'
+categories=os.listdir(data_path)
+labels=[i for i in range(len(categories))]
 
-# ------------------------------------------------------------------------ #
+label_dict=dict(zip(categories,labels)) #empty dictionary
 
-'''
+print(label_dict)
+print(categories)
+print(labels)
 
-DOCUMENTATION:
 
-https://www.youtube.com/watch?v=Ax6P93r32KU
-https://github.com/balajisrinivas/Face-Mask-Detection
+# In[5]:
 
-'''
+
+imagePaths = list(paths.list_images('dataset'))
+data = []
+labels = []
+def create():
+    for imagePath in imagePaths:
+
+        label = imagePath.split(os.path.sep)[-2]
+        image = load_img(imagePath, target_size=(224, 224))
+        image = img_to_array(image)
+        image = preprocess_input(image)
+        data.append(image)
+        labels.append(label)
+
+
+# In[6]:
+
+
+create()
+
+
+# In[7]:
+
+
+data = np.array(data, dtype="float32")
+labels = np.array(labels)
+
+
+# In[8]:
+
+
+print(data.shape)
+print(labels.shape)
+
+print(data[0:5])
+print(labels)
+
+
+# ### Building CNN
+
+# In[9]:
+
+
+data.shape
+
+
+# In[10]:
+
+
+baseModel = MobileNetV2(weights="imagenet", include_top=False,
+input_shape=(224, 224, 3))
+
+headModel = baseModel.output
+
+headModel = AveragePooling2D(pool_size=(7, 7))(headModel)
+
+headModel = Flatten(name="flatten")(headModel)
+
+headModel = Dense(128, activation="relu")(headModel)
+
+headModel = Dropout(0.5)(headModel)
+
+headModel = Dense(2, activation="softmax")(headModel)
+
+
+model = Model(inputs=baseModel.input, outputs=headModel)
+
+for layer in baseModel.layers:
+    layer.trainable = False
+
+
+# In[11]:
+
+
+lb = LabelBinarizer()
+labels = lb.fit_transform(labels)
+labels = to_categorical(labels)
+
+
+# In[12]:
+
+
+(trainX, testX, trainY, testY) = train_test_split(data, labels,test_size=0.20, stratify=labels, random_state=5)
+
+
+# In[13]:
+
+
+aug = ImageDataGenerator(rotation_range=20,zoom_range=0.15,width_shift_range=0.2,height_shift_range=0.2,
+                         shear_range=0.15,horizontal_flip=True,fill_mode="nearest")
+
+
+# In[14]:
+
+
+model.summary()
+
+
+# ### Training CNN on Training set
+
+# In[15]:
+
+
+INIT_LR = 1e-4
+EPOCHS = 20
+BS = 32
+print("[INFO] compiling model...")
+
+opt = Adam(lr=INIT_LR, decay=INIT_LR / EPOCHS)
+model.compile(loss="binary_crossentropy", optimizer=opt,metrics=["accuracy"])
+
+# train the head of the network
+print("[INFO] training head...")
+hist = model.fit(aug.flow(trainX, trainY, batch_size=BS),steps_per_epoch=len(trainX) // BS,
+              validation_data=(testX, testY),validation_steps=len(testX) // BS, epochs=EPOCHS)
+
+
+# In[16]:
+
+
+model.save('final_model.h5')
+
+
+# ### Visualizing results
+
+# In[17]:
+
+
+plt.figure(1, figsize = (15, 5))
+plt.subplot(1,2,1)
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.plot( hist.history["loss"], label = "Training Loss")
+plt.plot( hist.history["val_loss"], label = "Validation Loss")
+plt.grid(True)
+plt.legend()
+
+plt.subplot(1,2,2)
+plt.xlabel("Epochs")
+plt.ylabel("Accuracy")
+plt.plot( hist.history["accuracy"], label = "Training Accuracy")
+plt.plot( hist.history["val_accuracy"], label = "Validation Accuracy")
+plt.grid(True)
+plt.legend()
+plt.show()
+
+
+# ## Checking model for Predictions
+
+# In[18]:
+
+
+img = cv2.imread('women.jpg')
+
+
+# In[19]:
+
+
+plt.imshow(cv2.cvtColor(img , cv2.COLOR_BGR2RGB))
+
+
+# In[20]:
+
+
+# gray=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)    
+resized=cv2.resize(img,(224,224))
+normalized=resized/255.0
+reshaped=np.reshape(normalized,(1,224,224,3))
+
+
+# In[21]:
+
+
+Predictions = model.predict(reshaped)
+print(Predictions)
+
+
+# In[22]:
+
+
+print(Predictions[0][0])
+print(Predictions[0][1])
+
+
+# In[23]:
+
+
+img2 = cv2.imread('women2.jpeg')
+
+
+# In[24]:
+
+
+plt.imshow(cv2.cvtColor(img2 , cv2.COLOR_BGR2RGB))
+
+
+# In[25]:
+
+
+# gray=cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)    
+resized=cv2.resize(img2,(224,224))
+normalized=resized/255.0
+reshaped=np.reshape(normalized,(1,224,224,3))
+
+
+# In[26]:
+
+
+Predictions = model.predict(reshaped)
+print(Predictions)
+
+
+# ## Face Detection
+
+# In[27]:
+
+
+img3 = cv2.imread('women3.jfif')
+
+
+# In[28]:
+
+
+plt.imshow(cv2.cvtColor(img3 , cv2.COLOR_BGR2RGB))
+
+
+# In[29]:
+
+
+face = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+
+# In[30]:
+
+
+gray = cv2.cvtColor(img3 , cv2.COLOR_BGR2GRAY)
+
+
+# In[31]:
+
+
+gray.shape
+
+
+# In[32]:
+
+
+faces = face.detectMultiScale(gray,1.1,4)
+for (x,y,w,h) in faces:
+        roi_gray = gray[y:y+h,x:x+w]
+        roi_color = img3[y:y+h , x:x+w]
+        cv2.rectangle(img3,(x,y),(x+w,y+h),(0,0,255),2)       
+        face2 = face.detectMultiScale(roi_gray)
+        if(len(face2) == 0):
+            print("No Face")
+        else:
+            for (ex,ey,ew,eh) in face2:
+                face_roi = roi_color[ey:ey+eh,ex:ex+ew]
+
+
+# In[33]:
+
+
+plt.imshow(cv2.cvtColor(img3,cv2.COLOR_BGR2RGB))
+
+
+# In[34]:
+
+
+plt.imshow(cv2.cvtColor(face_roi , cv2.COLOR_BGR2RGB))
+
+
+# In[35]:
+
+
+# gray=cv2.cvtColor(img3,cv2.COLOR_BGR2GRAY)    
+resized=cv2.resize(img3,(224,224))
+normalized=resized/255.0
+reshaped=np.reshape(normalized,(1,224,224,3))
+
+
+# In[36]:
+
+
+predictions = model.predict(reshaped)
+
+
+# In[37]:
+
+
+print(predictions)
+
