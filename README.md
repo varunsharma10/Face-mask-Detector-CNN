@@ -4,3 +4,4 @@ Technology used
  2. tensorflow
  3. openCV
  4. keras   
+ 5. Transfer Learning
