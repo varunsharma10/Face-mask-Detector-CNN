@@ -1,4 +1,4 @@
-# Fase-mask-Detector-CNN
+# Face-mask-Detector-CNN
 Technology used
  1. python
  2. tensorflow
